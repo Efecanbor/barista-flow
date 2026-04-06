@@ -1,66 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import api from '../services/api';
+import axios from 'axios';
 import { Plus, Minus, Package, AlertTriangle, Trash2, LayoutDashboard, PackagePlus, BarChart3, PieChart as PieIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// --- CHART.JS BİLEŞENLERİ ---
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-} from 'chart.js';
+// Chart.js Setup
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
 
-// Chart.js Bileşenlerini Kayıt Ediyoruz (Bu kısım grafiklerin çalışması için şart)
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
-// --- TASARIM STİLLERİ ---
-const cardStyle: React.CSSProperties = { 
-  backgroundColor: '#1e293b', 
-  padding: '20px', 
-  borderRadius: '15px',
-  border: '1px solid #334155'
-};
-
-const statCardStyle: React.CSSProperties = { 
-  backgroundColor: '#1e293b', 
-  padding: '25px', 
-  borderRadius: '15px', 
-  textAlign: 'center', 
-  border: '1px solid #1e293b' 
-};
-
-const imgStyle: React.CSSProperties = { 
-  width: '70px', 
-  height: '70px', 
-  borderRadius: '10px', 
-  objectFit: 'cover',
-  backgroundColor: '#0f172a'
-};
-
-const actionBtn: React.CSSProperties = { 
-  padding: '8px', 
-  backgroundColor: '#0f172a', 
-  border: 'none', 
-  borderRadius: '8px', 
-  color: 'white', 
-  cursor: 'pointer', 
-  display: 'flex', 
-  alignItems: 'center' 
-};
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 const Dashboard = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -68,32 +15,34 @@ const Dashboard = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/products');
+      const response = await axios.get('http://localhost:5000/api/products');
       setProducts(response.data);
-    } catch (err) { 
-      console.error("Veriler çekilemedi. Backend'i kontrol et!"); 
-    }
+    } catch (err) { console.error("Veri çekilemedi!"); }
   };
 
-  useEffect(() => { 
-    fetchProducts(); 
-  }, []);
+  useEffect(() => { fetchProducts(); }, []);
 
   const updateStock = async (id: number, quantity: number) => {
     try {
-      await api.patch(`/products/${id}/stock`, { quantity });
+      await axios.patch(`http://localhost:5000/api/products/${id}/stock`, { quantity });
       fetchProducts();
-    } catch (err) { 
-      alert("Güncelleme hatası!"); 
+    } catch (err) { alert("Güncelleme hatası!"); }
+  };
+
+  const deleteProduct = async (id: number) => {
+    if (window.confirm("Bu ürünü silmek istediğinize emin misiniz?")) {
+      try {
+        await axios.delete(`http://localhost:5000/api/products/${id}`);
+        fetchProducts();
+      } catch (err) { alert("Silme hatası!"); }
     }
   };
 
-  // --- HESAPLAMALAR & GRAFİK VERİLERİ ---
+  // Stats & Graphs
   const totalProducts = products.length;
   const criticalCount = products.filter(p => Number(p.stock_quantity) <= Number(p.min_stock_level)).length;
-
-  // Kategori Dağılımı (Pasta Grafiği İçin)
   const categories = Array.from(new Set(products.map(p => p.category || 'Diğer')));
+
   const pieData = {
     labels: categories,
     datasets: [{
@@ -104,103 +53,90 @@ const Dashboard = () => {
     }],
   };
 
-  // Stok Durumu (Çubuk Grafiği İçin - İlk 6 Ürün)
   const barData = {
     labels: products.map(p => p.product_name).slice(0, 6),
     datasets: [{
       label: 'Mevcut Stok',
       data: products.map(p => p.stock_quantity).slice(0, 6),
       backgroundColor: '#38bdf8',
-      borderRadius: 5,
+      borderRadius: 8,
     }],
   };
 
   return (
-    <div style={{ padding: '40px', backgroundColor: '#0f172a', minHeight: '100vh', fontFamily: 'sans-serif', color: 'white' }}>
-      
-      {/* Header */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <LayoutDashboard size={32} color="#38bdf8" />
-          <h1 style={{ margin: 0, fontSize: '26px' }}>BaristaFlow Stok Paneli</h1>
+    <div className="min-h-screen bg-[#0f172a] text-white p-6 md:p-12">
+      {/* Header Area */}
+      <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+        <div className="flex items-center gap-3">
+          <LayoutDashboard size={36} className="text-sky-400" />
+          <h1 className="text-3xl font-black tracking-tight uppercase">BaristaFlow Pro</h1>
         </div>
         <button 
           onClick={() => navigate('/add-product')}
-          style={{ padding: '12px 20px', backgroundColor: '#38bdf8', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}
+          className="bg-sky-500 hover:bg-sky-400 text-slate-900 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all"
         >
           <PackagePlus size={20} /> Yeni Ürün Ekle
         </button>
       </header>
 
-      {/* İstatistik Özetleri */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
-        <div style={statCardStyle}>
-          <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '5px' }}>TOPLAM ÇEŞİT</div>
-          <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#38bdf8' }}>{totalProducts}</div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        <div className="bg-[#1e293b] p-8 rounded-3xl border border-slate-800 text-center">
+          <p className="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Toplam Çeşit</p>
+          <p className="text-5xl font-black text-sky-400">{totalProducts}</p>
         </div>
-        <div style={{ ...statCardStyle, border: criticalCount > 0 ? '1px solid #ef4444' : '1px solid #1e293b' }}>
-          <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '5px' }}>KRİTİK STOK</div>
-          <div style={{ fontSize: '36px', fontWeight: 'bold', color: criticalCount > 0 ? '#ef4444' : '#10b981' }}>{criticalCount}</div>
-        </div>
-      </div>
-
-      {/* Grafikler */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-        <div style={cardStyle}>
-          <h3 style={{ marginTop: 0, fontSize: '16px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={18} /> Stok Durumu
-          </h3>
-          <div style={{ height: '250px' }}>
-            <Bar data={barData} options={{ maintainAspectRatio: false, scales: { y: { ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } }} />
-          </div>
-        </div>
-        <div style={cardStyle}>
-          <h3 style={{ marginTop: 0, fontSize: '16px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <PieIcon size={18} /> Kategori Dağılımı
-          </h3>
-          <div style={{ height: '250px', display: 'flex', justifyContent: 'center' }}>
-            <Pie data={pieData} options={{ maintainAspectRatio: false }} />
-          </div>
+        <div className={`bg-[#1e293b] p-8 rounded-3xl border text-center transition-colors ${criticalCount > 0 ? 'border-red-500' : 'border-slate-800'}`}>
+          <p className="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Kritik Stok</p>
+          <p className={`text-5xl font-black ${criticalCount > 0 ? 'text-red-500' : 'text-emerald-400'}`}>{criticalCount}</p>
         </div>
       </div>
 
-      {/* Ürün Kartları Grid */}
-      <h2 style={{ marginBottom: '20px', fontSize: '20px' }}>Envanter Listesi</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+      {/* Graphs Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <div className="bg-[#1e293b] p-6 rounded-3xl border border-slate-800">
+          <h3 className="flex items-center gap-2 text-slate-400 mb-6 font-semibold"><BarChart3 size={18} /> Stok Dağılımı</h3>
+          <div className="h-64"><Bar data={barData} options={{ maintainAspectRatio: false }} /></div>
+        </div>
+        <div className="bg-[#1e293b] p-6 rounded-3xl border border-slate-800">
+          <h3 className="flex items-center gap-2 text-slate-400 mb-6 font-semibold"><PieIcon size={18} /> Kategoriler</h3>
+          <div className="h-64"><Pie data={pieData} options={{ maintainAspectRatio: false }} /></div>
+        </div>
+      </div>
+
+      {/* Product Grid */}
+      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Package className="text-sky-400" /> Envanter Listesi</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {products.map((p) => {
           const isCritical = Number(p.stock_quantity) <= Number(p.min_stock_level);
-          
           return (
-            <div key={p.id} style={{ ...cardStyle, border: isCritical ? '2px solid #ef4444' : '1px solid #334155' }}>
-              <div style={{ display: 'flex', gap: '15px' }}>
-                {p.image_url ? (
-                  <img src={`http://localhost:5000${p.image_url}`} style={imgStyle} alt="" />
-                ) : (
-                  <div style={{ ...imgStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Package color="#94a3b8" size={30} />
-                  </div>
-                )}
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: '0 0 5px 0' }}>{p.product_name}</h3>
-                  <div style={{ fontSize: '12px', color: '#38bdf8', marginBottom: '8px' }}>{p.category}</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: isCritical ? '#ef4444' : '#10b981' }}>
-                    {p.stock_quantity} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>{p.unit}</span>
-                    {isCritical && <AlertTriangle size={18} style={{ marginLeft: '10px', verticalAlign: 'middle' }} color="#ef4444" />}
-                  </div>
+            <div key={p.id} className={`bg-[#1e293b] p-6 rounded-3xl border-2 transition-all ${isCritical ? 'border-red-500 bg-red-950/10' : 'border-slate-800'}`}>
+              <div className="flex gap-4 mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-slate-900 flex items-center justify-center overflow-hidden border border-slate-700">
+                  {p.image_url ? (
+                    <img src={`http://localhost:5000${p.image_url}`} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <Package size={24} className="text-slate-600" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-lg leading-tight">{p.product_name}</h4>
+                  <span className="text-xs text-sky-400 font-semibold">{p.category}</span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={() => updateStock(p.id, -1)} style={actionBtn}><Minus size={18} /></button>
-                  <button onClick={() => updateStock(p.id, 1)} style={actionBtn}><Plus size={18} /></button>
+              <div className="text-center mb-6">
+                <p className={`text-4xl font-black ${isCritical ? 'text-red-500' : 'text-emerald-400'}`}>
+                  {p.stock_quantity} <span className="text-sm font-normal text-slate-500">{p.unit}</span>
+                </p>
+                {isCritical && <div className="text-red-500 flex items-center justify-center gap-1 text-xs mt-1 font-bold animate-pulse"><AlertTriangle size={12} /> KRİTİK SEVİYE!</div>}
+              </div>
+
+              <div className="flex justify-between items-center gap-3">
+                <div className="flex gap-2 flex-1">
+                  <button onClick={() => updateStock(p.id, -1)} className="bg-slate-900 hover:bg-slate-800 p-3 rounded-xl flex-1 flex justify-center transition-colors"><Minus size={18} /></button>
+                  <button onClick={() => updateStock(p.id, 1)} className="bg-sky-500 hover:bg-sky-400 text-slate-900 p-3 rounded-xl flex-1 flex justify-center transition-colors"><Plus size={18} /></button>
                 </div>
-                <button 
-                  onClick={async () => { if(window.confirm("Silinsin mi?")) { await api.delete(`/products/${p.id}`); fetchProducts(); } }} 
-                  style={{ ...actionBtn, color: '#ef4444' }}
-                >
-                  <Trash2 size={18} />
-                </button>
+                <button onClick={() => deleteProduct(p.id)} className="p-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"><Trash2 size={18} /></button>
               </div>
             </div>
           );
